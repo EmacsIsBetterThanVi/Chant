@@ -1,0 +1,11 @@
+#!/bin/bash
+if [[ $1 != "clean" ]]; then
+echo "Compiling source"
+javac Chant/$1.java
+echo "Building jar"
+echo "Main-Class: Chant.$1" > "Manifest.txt"
+jar -cfm $1.jar Manifest.txt Chant/*.class
+fi
+echo "cleaning build"
+rm Chant/*.class Manifest.txt
+echo "Done"
