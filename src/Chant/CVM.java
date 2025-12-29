@@ -3,6 +3,7 @@ package Chant;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Scanner;
@@ -30,7 +31,10 @@ Chant is a programing language which uses an ultraminimal instruction set virtua
 The CVM is 32 bit with support for 64 bit numbers, and has a 32 bit 4 byte alighned instruction in the following format
 iiiccIdraaaaaaaaaaaaaaaaaaaaaaaa
 i represents the 3 bit instruction which can be one of the following instuctions:
-0 - NOP
+0 - SYS (SUB OPP is controled by the top 4 bits of the address)
+    - 0 NOP
+    - 1 SHL (I for SHR) by the bottom 8 bits of the address
+    - 2 PUSH (I for POP)
 1 - ADD
 2 - AND
 3 - NOT (Indirect adressing mode loads the register with the current Processor ID)
@@ -69,13 +73,13 @@ The CVM uses MMIO and has the following Memory Map
                       +18: Shutdown Request Interupt Handler Pointer. Use this to clean up when the program is told to quit normaly.
                       +1C: Interprocessor Interupt Handler.
 0x0000 0400 - 0x002F FFFF: Free Memory for any purpose
-0x0030 0000 - 0x0034 AFFF: Video Out Frame 1 (8 bits per pixel or in 4 bits per pixel this becomes frames 1 and 2)
-0x0034 B000 - 0x0039 5FFF: Video Out Frame 2 (8 bits per pixel, or in 4 bits per piexel this becomes frames 3 and 4)
+0x0030 0000 - 0x0034 AFFF: Video Out Frame 1 (8 bits per pixel or in 4 bits per pixel this becomes frames 1 and 2, with 2 starting at  0x00325800)
+0x0034 B000 - 0x0039 5FFF: Video Out Frame 2 (8 bits per pixel, or in 4 bits per piexel this becomes frames 3 and 4 with 4 starting at 0x00370800)
 0x0039 6000 - 0x0039 62FF: Color Pallet 1(Frame 1)
 0x0039 6300 - 0x0039 65FF: Color Pallet 2(Frame 1 Alt or Frame 2 in 4bpp mode)
 0x0039 6600 - 0x0039 68FF: Color Pallet 3(Frame 2 or Frame 3 in 4bpp mode)
 0x0039 6900 - 0x0039 6BFF: Color Pallet 4(Frame 2 Alt or Frame 4 in 4bpp)
-0x0039 6C00 - 0x0039 917F: Console Frame (Arragnged as Character Forground Background 0
+0x0039 6C00 - 0x0039 917F: Console Frame (Arragnged as Character Forground Background 0) Uses pallet 4
 0x0039 9180 - 0x0039 FFFF: Hole/Pointer Space(Must be set at start up with the EXTRA Pointer space flag set in the header)
 0x003A 0000 - 0x003A FFFF: Character Rom
 0x003B 0000 - 0x003E FFFF: BIOS/ROM
@@ -299,7 +303,7 @@ public class CVM{
             return;
         }
         if (verbose) System.out.println("Initilizing Peripherals");
-        addPeripheral(new Peripheral(0, memory.getRegion(0x3F0000)) {
+        addPeripheral(new Peripheral(0, memory.getRegion(0x3F0000)) { //STDIO
             public String data="";
             @Override
             public void refresh() {
@@ -340,6 +344,12 @@ public class CVM{
                     CVM.HALT = true;
                 } else if (cmd==3){
                     Runtime.getRuntime().halt(arg1);
+                } else if (cmd==4){
+                    for (CVM core : CORES) {
+                        if (core.ID == arg2) continue;
+                        core.interupt(arg1);
+                    }
+                    return this.unchanged((byte)cmd, arg1, arg2, arg3, arg4);
                 }
                 return this.unchanged(cmd, arg1, arg2, arg3, arg4);
             }
@@ -359,7 +369,7 @@ public class CVM{
             }
             
         });
-        MPhandler.addPeripheral(new MicroPeripheral(3) {
+        MPhandler.addPeripheral(new MicroPeripheral(3) { //Menu Bar
             public JMenuBar CVMmenu;
             @Override
             public byte[] refresh(byte cmd, byte arg1, byte arg2, byte arg3, byte arg4) {
@@ -377,10 +387,11 @@ public class CVM{
             }
             
         });
-	//TODO Add arbitrary micro peripheral loader?
+        MPhandler.addPeripheral(new LibraryLoader(4));
+	    //TODO Add arbitrary micro peripheral loader?
         screen = new Screen(10, memory.getRegion(0x3F0000));
         addPeripheral(screen);
-        addPeripheral(new Peripheral(14, memory.getRegion(0x3F0000)) {
+        addPeripheral(new Peripheral(14, memory.getRegion(0x3F0000)) { //Times and RTC
             Timer t1;
             Timer t2; 
             TimerTask t1Task;
@@ -481,7 +492,6 @@ public class CVM{
             }
         }
         Signal.handle(new Signal("INT"), new ShutdownHook());
-        if (memuse) System.out.println(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
         if (verbose) System.out.println("Creating cores");
         CORES = new CVM[ExtraCores+1];
         for (byte i=0; i<=ExtraCores; i++){
@@ -491,6 +501,7 @@ public class CVM{
             ramWatcher.ram=memory;
             ramWatcher.display();
         }
+        if (memuse) System.out.println(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory());
         if (verbose) System.out.println("Starting Execution");
         EXEC();
     }
@@ -500,6 +511,7 @@ public class CVM{
         if (ID==0) this.PC = 0x3B0000;
         else this.PC=0x3B0004;
     }
+    public static boolean canInt = false;
     public void exec(){
         if ((memory.getByte(ID*32)&2)!=0) return;
         int instruction = memory.get(PC);
@@ -579,7 +591,9 @@ public class CVM{
             }
             if (HALT) continue;
             for (CVM core : CORES) {
+                core.canInt=false;
                 core.exec();
+                core.canInt=true;
             }
             for (Peripheral p : peripherals){
                 p.refresh();
@@ -591,6 +605,7 @@ public class CVM{
         if ((flags & 1) == 1){
             if ((flags & (1<<(2+I))) != 0){
                 if (verbose) System.out.printf("Interupt %d recived and handled\n", I);
+                while (!this.canInt);
                 memory.write(4+32*this.ID, memory.get(4+32*this.ID)+4);
                 memory.write(memory.get(4+32*this.ID), this.PC);
                 this.PC = memory.get(32*this.ID+8+4*I);
@@ -609,222 +624,6 @@ class ShutdownHook implements SignalHandler {
                 System.out.printf("Sending Shutdown Interupt to processor %d\n", core.ID);
             }
             core.interupt(4); //Send a shutdown request to each processor
-        }
-    }
-}
-class Screen extends Peripheral{
-        public Screen(int MMIOaddr, byte[] region) {
-            super(MMIOaddr, region);
-        }
-        public int[] KeyboardBuffer;
-        public int KeyboardBufferPoint;
-        public JFrame Frame1;
-        public Canvas Display1;
-        public JFrame Frame2;
-        public Canvas Display2;
-        public JFrame Frame3; //Skip
-        public Canvas Display3;
-        public JFrame Frame4; //Skip
-        public Canvas Display4;
-        public JFrame TextFrame;
-        public Canvas TextDisplay;
-        public byte FLAGS; 
-        public boolean Initilized = false;
-        public static KeyListener Keyboard;
-        /*
-        Flag 0: Display 1, Flag 1: Display 2, Flag 2: Display 3(Only matteres if in 4bpp), Flag 3: Display 4(Only matteres if in 4bpp)
-        Flag 4: Text Display, Flag 5: 4bpp mode
-        */
-        private boolean testFlag(int Flag){
-            return (FLAGS&(1<<Flag))!=0;
-        }
-        public void reset(){
-            if (testFlag(0) && Frame1 == null) {
-                Frame1 = new JFrame("CVM Frame 1");
-                Frame1.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                Frame1.setUndecorated(true);
-                Display1 = new Canvas();
-                Frame1.addKeyListener(Keyboard);
-            } else if (!testFlag(0) && Frame1 != null){
-                Frame1.setVisible(false);
-                Frame1.setEnabled(false);
-            } else if (testFlag(0) && Frame1 != null){
-                Frame1.setVisible(true);
-                Frame1.setEnabled(true);
-            }
-            if (testFlag(1) && Frame2 == null){
-                Frame2 = new JFrame("CVM Frame 2");
-                Frame2.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                Frame2.setUndecorated(true);
-                Display2 = new Canvas();
-                Frame2.addKeyListener(Keyboard);
-            } else if (!testFlag(1) && Frame2 != null){
-                Frame2.setVisible(false);
-                Frame2.setEnabled(false);
-            } else if (testFlag(1) && Frame2 != null){
-                Frame2.setVisible(true);
-                Frame2.setEnabled(true);
-            }
-            if (testFlag(4) && TextFrame == null){
-                TextFrame = new JFrame("CVM Text Frame");
-                TextFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                TextFrame.setUndecorated(true);
-                TextDisplay = new Canvas();
-                TextDisplay.setSize(640, 400);
-                TextFrame.setSize(640, 400);
-                TextFrame.add(TextDisplay);
-                TextFrame.setVisible(true);
-                TextFrame.addKeyListener(Keyboard);
-            } else if (!testFlag(4) && TextFrame != null){
-                TextFrame.setVisible(false);
-                TextFrame.setEnabled(false);
-            } else if (testFlag(4) && TextFrame != null){
-                TextFrame.setVisible(true);
-                TextFrame.setEnabled(true);
-            }
-            if (testFlag(5)){
-                if (testFlag(2) && Frame3 == null){
-                    Frame3 = new JFrame("CVM Frame 3");
-                    Frame3.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                    Frame3.setUndecorated(true);
-                    Display3 = new Canvas();
-                    Frame3.addKeyListener(Keyboard);
-                } else if (!testFlag(2) && Frame3 != null){
-                    Frame3.setVisible(false);
-                    Frame3.setEnabled(false);
-                } else if (testFlag(2) && Frame3 != null){
-                    Frame3.setVisible(true);
-                    Frame3.setEnabled(true);
-                }
-                if (testFlag(3) && Frame4 == null){
-                    Frame4 = new JFrame("CVM Frame 4");
-                    Frame4.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                    Frame4.setUndecorated(true);
-                    Display4 = new Canvas();
-                    Frame4.addKeyListener(Keyboard);
-                } else if (!testFlag(3) && Frame4 != null){
-                    Frame4.setVisible(false);
-                    Frame4.setEnabled(false);
-                } else if (testFlag(3) && Frame4 != null){
-                    Frame4.setVisible(true);
-                    Frame4.setEnabled(true);
-                }
-            } else {
-                if (Frame3!=null){
-                    Frame3.setVisible(false);
-                    Frame3.setEnabled(false);
-                }
-                if (Frame4!=null){
-                    Frame4.setVisible(false);
-                    Frame4.setEnabled(false);
-                }
-            }
-        }
-        public void INIT(){
-            Keyboard=new KeyListener() {
-                private void key(int e){
-                    KeyboardBuffer[KeyboardBufferPoint]=e;
-                    KeyboardBufferPoint++;
-                    if(KeyboardBufferPoint==64){
-                        KeyboardBufferPoint=0;
-                    }
-                }
-                @Override
-                public void keyTyped(KeyEvent e) {}
-
-                @Override
-                public void keyPressed(KeyEvent e) {
-                    key(e.getKeyCode());
-                }
-
-                @Override
-                public void keyReleased(KeyEvent e) {
-                    key(255);
-                    key(e.getKeyCode());
-                }
-                
-            };
-            KeyboardBuffer = new int[64];
-            reset();
-            Initilized=true;
-        }
-        @Override
-        public void refresh() {
-            //TODO finish Display Class(Will be part of version 1.2)
-            switch(this.region[this.MMIOaddr]){
-                case 1:
-                    FLAGS = this.region[this.MMIOaddr+1];
-                    if (Initilized) {
-                        reset();
-                    }
-                    break;
-                case 2:
-                    if (!Initilized) INIT();
-                    else reset();
-                    break;
-            }
-            this.region[this.MMIOaddr]=0;
-        }
-
-        @Override
-        public int getIOports() {
-            return 4;
-        }
-            
-}
-class CanvasDrawer {
-    public Canvas myCanvas;
-    public RAM ram;
-    public boolean bpp=true; // false: 4, true: 8
-    public int Pallet;
-    public int address;
-    public CanvasDrawer(Canvas c, RAM ram, int Pallet, int address){
-        this.myCanvas = c;
-        this.ram = ram;
-        this.Pallet=Pallet;
-        this.address = address;
-    }
-    public CanvasDrawer(Canvas c, RAM ram, int Pallet, int address, boolean bpp){
-        this.myCanvas = c;
-        this.ram = ram;
-        this.Pallet=Pallet;
-        this.address = address;
-        this.bpp=bpp;
-    }
-    public void Draw(){
-
-    }
-}
-class TextCanvas extends Canvas {
-    public RAM ram;
-    public int Pallet;
-    public int address;
-    public int CharacterRom;
-    public TextCanvas(RAM ram, int Pallet, int address, int CharacterRom){
-        this.ram = ram;
-        this.Pallet=Pallet;
-        this.address = address;
-        this.CharacterRom = CharacterRom;
-    }
-    @Override
-    public void paint(Graphics g) {
-        super.paint(g);
-        int c;
-        byte ch;
-        int chLine;
-        for (int i = 0; i < 2000; i++) {
-            c=this.ram.getByte(this.address+(i*4)+2)*3;
-            g.setColor(new Color(this.ram.getByte(c), this.ram.getByte(c+1), this.ram.getByte(c+2)));
-            g.fillRect(8*(i%80), (int)(16*Math.floor(i/80)), 8, 16);
-            c=this.ram.getByte(this.address+(i*4)+1)*3;
-            g.setColor(new Color(this.ram.getByte(c), this.ram.getByte(c+1), this.ram.getByte(c+2)));
-            ch = this.ram.getByte(this.address+(i*4));
-            for (int j=0; j<16; j++){
-                chLine = this.ram.getByte(this.CharacterRom+(16*ch)+j);
-                for (int k=0; k<8; k++){
-                    if ((chLine&(1<<(7-k)))!=0) g.fillRect(8*(i%80)+k, (int)(16*Math.floor(i/80))+j, 1, 1);
-                }
-            }
         }
     }
 }

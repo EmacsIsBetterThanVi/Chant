@@ -2,3 +2,4 @@
 test.bin
 .vscode/
 .DS_Store
+*.class
