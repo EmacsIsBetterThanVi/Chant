@@ -1,5 +1,7 @@
 *.jar
 test.bin
 .vscode/
+.idea/
+Chant.iml
 .DS_Store
 *.class

@@ -9,7 +9,7 @@ import java.awt.event.KeyListener;
 import javax.swing.JFrame;
 
 public class Screen extends Peripheral{
-    public Screen(int MMIOaddr, byte[] region) {
+    public Screen(int MMIOaddr, short[] region) {
         super(MMIOaddr, region);
     }
     public int[] KeyboardBuffer;
@@ -24,7 +24,7 @@ public class Screen extends Peripheral{
     public PixelCanvas Display4;
     public JFrame TextFrame;
     public TextCanvas TextDisplay;
-    public byte FLAGS; 
+    public short FLAGS;
     public boolean Initilized = false;
     public static KeyListener Keyboard;
     /*
@@ -216,7 +216,7 @@ public TextCanvas(RAM ram, int Pallet, int address, int CharacterRom){
 public void paint(Graphics g) {
     super.paint(g);
     int c;
-    byte ch;
+    short ch;
     int chLine;
     for (int i = 0; i < 2000; i++) {
         c=this.ram.getByte(this.address+(i*4)+2)*3;

@@ -5,8 +5,8 @@ A base class on which all peripherals should be built. The CVM will autoload any
 */
 public abstract class Peripheral {
     int MMIOaddr;
-    byte[] region;
-    public Peripheral(int MMIOaddr, byte[] region){
+    short[] region;
+    public Peripheral(int MMIOaddr, short[] region){
         this.MMIOaddr=MMIOaddr;
         this.region=region;
     }
@@ -14,7 +14,7 @@ public abstract class Peripheral {
     public abstract void refresh();
     // Returns the number of bytes this requires for its IO ports
     public abstract int getIOports(); 
-    public static Peripheral defaultPeripheral = new Peripheral(0, new byte[0]) {
+    public static Peripheral defaultPeripheral = new Peripheral(0, new short[0]) {
         @Override
         public void refresh() {
             return;

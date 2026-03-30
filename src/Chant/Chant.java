@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 public class Chant {
-     public static final versionString = "0.2.0";
+    public static final String versionString = "0.2.0";
     private static void printheaderhelp(){
         System.out.println("Run only the header generation module.\nNOTE: Usage of the header module should only be done by advanced users");
         System.out.println("usage: chant --header [options] <header info>");
@@ -84,7 +84,7 @@ public class Chant {
                         System.out.println(cvmHeader);
                         return;
                     } else 
-                    cvmHeader = new CVMHeader((args[base].toUpperCase().charAt(0)=='Y'), Integer.parseInt(args[base+1]), Integer.parseInt(args[base+2]), args[base+3], Arrays.copyOfRange(args, base+4, args.length));
+                        cvmHeader = new CVMHeader((args[base].toUpperCase().charAt(0)=='Y'), Integer.parseInt(args[base+1]), Integer.parseInt(args[base+2]), args[base+3], Arrays.copyOfRange(args, base+4, args.length));
                 else {
                     try {
                         FileInputStream fileInputStream = new FileInputStream(source);

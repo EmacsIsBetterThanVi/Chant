@@ -1,7 +1,7 @@
 package Chant;
 
 public class MPHandler extends Peripheral{
-    public MPHandler(int MMIOaddr, byte[] region) {
+    public MPHandler(int MMIOaddr, short[] region) {
             super(MMIOaddr, region);
     }
     public MicroPeripheral[] MicroPeripherals = new MicroPeripheral[255];
@@ -16,7 +16,7 @@ public class MPHandler extends Peripheral{
         if (this.region[this.MMIOaddr]==0) return;
         if (MicroPeripherals[this.region[this.MMIOaddr]-1]==null) return;
         if (CVM.verbose) System.out.printf("Peripheral %d sent command %d\n", this.region[this.MMIOaddr]-1, this.region[this.MMIOaddr+1]);
-        byte[] tmp = MicroPeripherals[this.region[this.MMIOaddr]-1].refresh(this.region[this.MMIOaddr+1], this.region[this.MMIOaddr+2], this.region[this.MMIOaddr+3],this.region[this.MMIOaddr+4], this.region[this.MMIOaddr+5]);
+        short[] tmp = MicroPeripherals[this.region[this.MMIOaddr]-1].refresh(this.region[this.MMIOaddr+1], this.region[this.MMIOaddr+2], this.region[this.MMIOaddr+3],this.region[this.MMIOaddr+4], this.region[this.MMIOaddr+5]);
         for (int i=0; i<6; i++){
             this.region[this.MMIOaddr+i]=tmp[i];
         }

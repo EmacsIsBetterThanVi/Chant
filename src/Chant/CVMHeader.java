@@ -19,11 +19,11 @@ import java.util.Arrays;
          0x?????, ? - Second IO field
          etc.
          */
-public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, int ExtraMemoryLength, String BIOS, String[] peripherals) {
+public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, long ExtraMemoryLength, String BIOS, String[] peripherals) {
     public static CVMHeader readHeader(byte[] data){
         String BIOS = new String(Arrays.copyOfRange(data, 9, 9+data[5]));
-        int ExtraMemoryLength=data[1]+(data[2]<<8)+(data[3]<<16)+(data[4]<<24);
-        if (ExtraMemoryLength>4277141504l) ExtraMemoryLength=0xFEF00000;
+        long ExtraMemoryLength=data[1]+(data[2]<<8)+(data[3]<<16)+(data[4]<<24);
+        if (ExtraMemoryLength>4277141504L) ExtraMemoryLength= 0xFEF00000L;
         String[] peripheralList = new String[data[6]];
         int currentAddress = data[7]+(data[8]<<8);
         for (int i=0; i<data[6]; i++){
@@ -39,14 +39,14 @@ public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, int ExtraMemo
         return new CVMHeader((data[0]&1)==1, ExtraCores, ExtraMemoryLength, BIOS, peripheralList);
     }
     @Override
-    public final String toString() {
+    public String toString() {
         String tmp = String.format("Extra Pointer Space: %s\nNumber of Cores: %d\nLength of Extended Memory: %d\nBIOS FILE: %s\nPeripherals to attach: ", this.ExtraPointerSpace ? "Yes":"No", this.ExtraCores+1, this.ExtraMemoryLength, this.BIOS);
         for (int i=0; i<this.peripherals.length; i++){
             tmp="\n"+this.peripherals[i];
         }
         return tmp;
     }
-    public final byte[] header(){
+    public byte[] header(){
         int IOstart = this.BIOS.length()+9;
         int length = IOstart;
         for (String string : this.peripherals) {

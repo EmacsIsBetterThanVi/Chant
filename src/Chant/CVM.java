@@ -115,9 +115,9 @@ BIOS must start with an unconditional jump to the Boot Processor BIOS, followed 
 public class CVM{
     public byte ID;
     private long register = 0;
-    private int PC = 0x3B0000;
+    private long PC = 0x3B0000;
     public static RAM memory;
-    final static String versionString = "1.0.0";
+    final static String versionString = "1.0.1";
     public static String[] peripheralList;
     public static MPHandler MPhandler;
     public static Screen screen;
@@ -163,9 +163,9 @@ public class CVM{
         return (data[0]>>>1)&31;
     }
     public static String BIOS;
-    public static int ExtraMemoryLength =0;
-    public static byte readError(FileInputStream fileInputStream) throws IOException{
-        byte a = (byte)fileInputStream.read();
+    public static long ExtraMemoryLength =0;
+    public static short readError(FileInputStream fileInputStream) throws IOException{
+        short a = (short)fileInputStream.read();
         if(a==-1) {
             System.err.println("File ended abruptly");
             System.exit(5);
@@ -278,9 +278,14 @@ public class CVM{
                 BIOS = System.getProperty("java.class.path")+"/Chant/"+BIOS;
             }
             try (FileInputStream BIOSfile = new FileInputStream(BIOS)){
+                byte[] biosDataByte = BIOSfile.readAllBytes();
+                short[] BIOSdata = new short[biosDataByte.length];
+                for (int i = 0; i < biosDataByte.length; i++) {
+                    BIOSdata[i] = (short)(biosDataByte[i]<0 ? (short)(biosDataByte[i])+256: (biosDataByte[i]));
+                }
                 memory = new RAM(
-                    new int[]{0, 0x400, 0x300000, 0x34B000, 0x396000, 0x396300, 0x396600, 0x396900, 0x396C00, 0x399180, 0x3A0000, 0x3B0000, 0x3F0000, 0x400000, 0x1000000, 0xFFF00000},
-                    new int[]{0x400, 0x2FFC00, 0x4B000, 0x4B000, 0x300, 0x300, 0x300, 0x300, 9600, (header[0] & 1) == 1 ? 0x6E80 : 4, 65536, 0x40000, 65536, 0xC00000, ExtraMemoryLength, 0x100000}, new byte[][]{{}, BIOSfile.readAllBytes()}, new int[]{10, 11});    
+                    new long[]{0, 0x400, 0x300000, 0x34B000, 0x396000, 0x396300, 0x396600, 0x396900, 0x396C00, 0x399180, 0x3A0000, 0x3B0000, 0x3F0000, 0x400000, 0x1000000, 0xFFF00000},
+                    new int[]{0x400, 0x2FFC00, 0x4B000, 0x4B000, 0x300, 0x300, 0x300, 0x300, 9600, (header[0] & 1) == 1 ? 0x6E80 : 4, 65536, 0x40000, 65536, 0xC00000, (int)ExtraMemoryLength, 0x100000}, new short[][]{{}, }, new int[]{10, 11});
             } catch (IllegalArgumentException iae){
                 System.err.println("Error in memory creation.");
                 System.exit(1);
@@ -290,7 +295,7 @@ public class CVM{
                 System.exit(4);
                 return;
             }
-            byte[] data = memory.getRegion(0x00400000);
+            short[] data = memory.getRegion(0x00400000);
             int a=0;
             byte b=0;
             while ((b=(byte)file.read())!=-1) {
@@ -336,7 +341,7 @@ public class CVM{
         addPeripheral(MPhandler);
         MPhandler.addPeripheral(new MicroPeripheral(1) { // PROCESSOR MANAGMENT
             @Override
-            public byte[] refresh(byte cmd, byte arg1, byte arg2, byte arg3, byte arg4) {
+            public short[] refresh(short cmd, short arg1, short arg2, short arg3, short arg4) {
                 if (cmd==1){
                     System.exit(arg1);
                 } else if (cmd==2){
@@ -349,7 +354,7 @@ public class CVM{
                         if (core.ID == arg2) continue;
                         core.interupt(arg1);
                     }
-                    return this.unchanged((byte)cmd, arg1, arg2, arg3, arg4);
+                    return this.unchanged(cmd, arg1, arg2, arg3, arg4);
                 }
                 return this.unchanged(cmd, arg1, arg2, arg3, arg4);
             }
@@ -358,9 +363,9 @@ public class CVM{
         MPhandler.addPeripheral(new MicroPeripheral(2) { //Keyboard
             public int KeyboardBufferPoint = 0;
             @Override
-            public byte[] refresh(byte cmd, byte arg1, byte arg2, byte arg3, byte arg4) {
+            public short[] refresh(short cmd, short arg1, short arg2, short arg3, short arg4) {
                 if (arg1==0 && (screen.KeyboardBuffer[KeyboardBufferPoint] != 0) ) {
-                    byte[] data = new byte[]{cmd, (byte)screen.KeyboardBuffer[KeyboardBufferPoint], 0, (byte)screen.KeyboardBufferPoint, (byte)KeyboardBufferPoint};
+                    short[] data = new short[]{cmd, (short)screen.KeyboardBuffer[KeyboardBufferPoint], 0, (short)screen.KeyboardBufferPoint, (short)KeyboardBufferPoint};
                     screen.KeyboardBuffer[KeyboardBufferPoint] = 0;
                     KeyboardBufferPoint++;
                     return data;
@@ -369,12 +374,12 @@ public class CVM{
             }
             
         });
-        MPhandler.addPeripheral(new MicroPeripheral(3) { //Menu Bar
+        MPhandler.addPeripheral(new MicroPeripheral(3) {//Menu Bar
             public JMenuBar CVMmenu;
             @Override
-            public byte[] refresh(byte cmd, byte arg1, byte arg2, byte arg3, byte arg4) {
+            public short[] refresh(short cmd, short arg1, short arg2, short arg3, short arg4) {
                 if (CVMmenu!=null){
-                    
+
                 } else if(cmd == 255 && screen.Initilized){
                     CVMmenu = new JMenuBar();
                     screen.Frame1.setJMenuBar(CVMmenu);
@@ -385,6 +390,7 @@ public class CVM{
                 }
                 return unchanged(cmd, arg1, arg2, arg3, arg4);
             }
+
             
         });
         MPhandler.addPeripheral(new LibraryLoader(4));
@@ -514,10 +520,10 @@ public class CVM{
     public static boolean canInt = false;
     public void exec(){
         if ((memory.getByte(ID*32)&2)!=0) return;
-        int instruction = memory.get(PC);
-        int address = instruction & 0xFFFFFF;
+        long instruction = memory.get(PC);
+        long address = instruction & 0xFFFFFF;
         boolean conditional = false;
-        switch ((instruction & 0x18000000) >> 27){
+        switch ((int)((instruction & 0x18000000) >> 27)){
             case 0:
                 conditional=true;
                 break;
@@ -532,7 +538,7 @@ public class CVM{
                 break;
         }
         if (conditional){
-            switch (instruction>>>29) {
+            switch ((int)(instruction>>>29)) {
                 case 1:
                     address=((instruction&(1<<26)) != 0 ? memory.get(address): address );
                     this.register+= ((instruction&(1<<25)) != 0 ? memory.getD(address) : memory.get(address));
@@ -601,7 +607,7 @@ public class CVM{
         }
     }
     public boolean interupt(int I){
-        byte flags = memory.getByte(this.ID*32);
+        short flags = memory.getByte(this.ID*32);
         if ((flags & 1) == 1){
             if ((flags & (1<<(2+I))) != 0){
                 if (verbose) System.out.printf("Interupt %d recived and handled\n", I);

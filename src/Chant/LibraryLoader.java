@@ -8,13 +8,13 @@ public class LibraryLoader extends MicroPeripheral{
     public LibraryLoader(int ID) {
         super(ID);
     }
-    public int LIBadder = 0xC00000;
-    private ArrayList<Pair<String, Pair<Integer, Integer>>> libs;
+    public long LIBadder = 0xC00000L;
+    private ArrayList<Pair<String, Pair<Long, Integer>>> libs;
     private String Libname;
     private FileInputStream openLibrary;
     private int state=0; //0 - null, 1 - await character, 2 - Library Load Success, 3 - Library Load Failure (FILE NOT FOUND), 4 - Library Load Failure (COULD NOT WRITE),
     // 5 - Library Load Failure (OVERRUN), 6 - Library Load Failure (LIBRARY EMPTY), 7 - Library Load Failure (LIBRARY NOT ALIGN4ED), 8 - Library Already Loaded
-    private int loadLibrary(int base){
+    private int loadLibrary(long base){
         int libLen=0;
         //TODO write LibLoader
         return libLen;
@@ -27,10 +27,10 @@ public class LibraryLoader extends MicroPeripheral{
         }
         return false;
     }
-    public int getLibrary(String name){
-        for (Pair<String,Pair<Integer,Integer>> pair : libs) {
+    public long getLibrary(String name){
+        for (Pair<String,Pair<Long,Integer>> pair : libs) {
             if (pair.key().equals(name)){
-                return pair.value().key().intValue();
+                return pair.value().key();
             } 
         }
         return 0;
@@ -43,13 +43,13 @@ public class LibraryLoader extends MicroPeripheral{
         if (LIBadder+libLen-1 > 0x1000000) return 5;
         if (libLen == 0) return 6;
         if (libLen == -1) return 7;
-        Pair loc = new Pair(LIBadder, libLen);
-        libs.add(new Pair(name, loc));
+        Pair<Long, Integer> loc = new Pair<>(LIBadder, libLen);
+        libs.add(new Pair<>(name, loc));
         CVM.memory.lockRegion(loc);
         LIBadder+=libLen;
         return 2;
     }
-    public int loadLibrary(String name, int base){
+    public int loadLibrary(String name, long base){
         if (getLibrary(name)==0) return 8;
         if (OpenLibrary(name)) return 3;
         int libLen = loadLibrary(base);
@@ -57,13 +57,13 @@ public class LibraryLoader extends MicroPeripheral{
         if (base+libLen-1 > 0x1000000) return 5;
         if (libLen == 0) return 6;
         if (libLen == -1) return 7;
-        Pair loc = new Pair(base, libLen);
-        libs.add(new Pair(name, loc));
+        Pair<Long, Integer> loc = new Pair<>(base, libLen);
+        libs.add(new Pair<>(name, loc));
         CVM.memory.lockRegion(loc);
         return 2;
     }
     @Override
-    public byte[] refresh(byte cmd, byte arg1, byte arg2, byte arg3, byte arg4) {
+    public short[] refresh(short cmd, short arg1, short arg2, short arg3, short arg4) {
         arg4 = (byte)state;
         switch (cmd) {
             case 0:
@@ -87,11 +87,11 @@ public class LibraryLoader extends MicroPeripheral{
                 state = loadLibrary(Libname);
                 break;
             case 4:
-                int addr = getLibrary(Libname);
-                arg4 = (byte)addr;
-                arg3 = (byte)Integer.rotateRight(addr, 8);
-                arg2 = (byte)Integer.rotateRight(addr, 16);
-                arg1 = (byte)Integer.rotateRight(addr, 24);
+                long addr = getLibrary(Libname);
+                arg4 = (short)addr;
+                arg3 = (short)Long.rotateRight(addr, 8);
+                arg2 = (short)Long.rotateRight(addr, 16);
+                arg1 = (short)Long.rotateRight(addr, 24);
         }
         return unchanged(cmd, arg1, arg2, arg3, arg4);
     }
