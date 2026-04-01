@@ -12,14 +12,26 @@ import java.util.Arrays;
          0x00008, 1 - Length of BIOS field
          0x00009, 1 - Number of IO fields
          0x00010, 2 - Start of IO fields
-         0x00012, ? - BIOS field(A string containing the file path to the BIOS file)
+         0x00012, 1 - Number of SysOps fields
+         0x00013, 2 - Start of SysOps fields
+         0x00015, 1 - Number of Micro fields
+         0x00016, 2 - Start of Micro fields
+         0x00018, ? - BIOS field(A string containing the file path to the BIOS file)
          0x?????, ? - First IO field
               +0, 1 - Length of path field
               +1, ? - Path field
          0x?????, ? - Second IO field
+         0x?????, ? - First SysOp field
+              +0, 1 - Length of path field
+              +1, ? - Path field
+         0x?????, ? - Second SysOp field
+         0x?????, ? - First MICRO field
+              +0, 1 - Length of path field
+              +1, ? - Path field
+         0x?????, ? - Second MICRO field
          etc.
          */
-public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, long ExtraMemoryLength, String BIOS, String[] peripherals) {
+public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, long ExtraMemoryLength, String BIOS, String[] peripherals, String[] SysOps, String[] MicroPeripherals) {
     public static CVMHeader readHeader(byte[] data){
         String BIOS = new String(Arrays.copyOfRange(data, 9, 9+data[5]));
         long ExtraMemoryLength=data[1]+(data[2]<<8)+(data[3]<<16)+(data[4]<<24);
@@ -36,15 +48,23 @@ public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, long ExtraMem
             }
         }
         int ExtraCores= (data[0]>>>1)&31;
-        return new CVMHeader((data[0]&1)==1, ExtraCores, ExtraMemoryLength, BIOS, peripheralList);
+        return new CVMHeader((data[0]&1)==1, ExtraCores, ExtraMemoryLength, BIOS, peripheralList, new String[]{}, new String[]{});
     }
     @Override
     public String toString() {
-        String tmp = String.format("Extra Pointer Space: %s\nNumber of Cores: %d\nLength of Extended Memory: %d\nBIOS FILE: %s\nPeripherals to attach: ", this.ExtraPointerSpace ? "Yes":"No", this.ExtraCores+1, this.ExtraMemoryLength, this.BIOS);
-        for (int i=0; i<this.peripherals.length; i++){
-            tmp="\n"+this.peripherals[i];
+        StringBuilder tmp = new StringBuilder(String.format("Extra Pointer Space: %s\nNumber of Cores: %d\nLength of Extended Memory: %d\nBIOS FILE: %s\nPeripherals to attach: ", this.ExtraPointerSpace ? "Yes" : "No", this.ExtraCores + 1, this.ExtraMemoryLength, this.BIOS));
+        for (String peripheral : this.peripherals) {
+            tmp.append("\n").append(peripheral);
         }
-        return tmp;
+        tmp.append("\nExtra Ops: ");
+        for (String sysOp : this.SysOps) {
+            tmp.append("\n").append(sysOp);
+        }
+        tmp.append("\nMicro Peripherals: ");
+        for (String microPeripheral : this.MicroPeripherals){
+            tmp.append("\n").append(microPeripheral);
+        }
+        return tmp.toString();
     }
     public byte[] header(){
         int IOstart = this.BIOS.length()+9;

@@ -35,6 +35,7 @@ i represents the 3 bit instruction which can be one of the following instuctions
     - 0 NOP
     - 1 SHL (I for SHR) by the bottom 8 bits of the address
     - 2 PUSH (I for POP)
+    - ... More can be defined using extentions.
 1 - ADD
 2 - AND
 3 - NOT (Indirect adressing mode loads the register with the current Processor ID)
@@ -130,6 +131,7 @@ public class CVM{
         System.out.println("\t-h ,--help\t\tPrints this message then exits");
         System.out.println("\t-H, --header\t\tSets a specific file to be the header file\n\t\t\t\t\trather than read from the start of the main file");
         System.out.println("\t-i, --input\t\tSets the input file");
+        System.out.println("\t-m, --memory-usage\tDisplays memory usage.");
         System.out.println("\t-M, --memory-monitor\tDisplays a memory monitor");
     }
     public static int readHeader(byte[] data){
@@ -192,11 +194,23 @@ public class CVM{
          0x00008, 1 - Length of BIOS field
          0x00009, 1 - Number of IO fields
          0x00010, 2 - Start of IO fields
-         0x00012, ? - BIOS field(A string containing the file path to the BIOS file)
+         0x00012, 1 - Number of SysOps fields
+         0x00013, 2 - Start of SysOps fields
+         0x00015, 1 - Number of Micro fields
+         0x00016, 2 - Start of Micro fields
+         0x00018, ? - BIOS field(A string containing the file path to the BIOS file)
          0x?????, ? - First IO field
               +0, 1 - Length of path field
               +1, ? - Path field
          0x?????, ? - Second IO field
+         0x?????, ? - First SysOp field
+              +0, 1 - Length of path field
+              +1, ? - Path field
+         0x?????, ? - Second SysOp field
+         0x?????, ? - First MICRO field
+              +0, 1 - Length of path field
+              +1, ? - Path field
+         0x?????, ? - Second MICRO field
          etc.
          */
         if (args.length == 0){
@@ -285,7 +299,7 @@ public class CVM{
                 }
                 memory = new RAM(
                     new long[]{0, 0x400, 0x300000, 0x34B000, 0x396000, 0x396300, 0x396600, 0x396900, 0x396C00, 0x399180, 0x3A0000, 0x3B0000, 0x3F0000, 0x400000, 0x1000000, 0xFFF00000},
-                    new int[]{0x400, 0x2FFC00, 0x4B000, 0x4B000, 0x300, 0x300, 0x300, 0x300, 9600, (header[0] & 1) == 1 ? 0x6E80 : 4, 65536, 0x40000, 65536, 0xC00000, (int)ExtraMemoryLength, 0x100000}, new short[][]{{}, }, new int[]{10, 11});
+                    new int[]{0x400, 0x2FFC00, 0x4B000, 0x4B000, 0x300, 0x300, 0x300, 0x300, 9600, (header[0] & 1) == 1 ? 0x6E80 : 4, 65536, 0x40000, 65536, 0xC00000, (int)ExtraMemoryLength, 0x100000}, new short[][]{{}, BIOSdata}, new int[]{10, 11});
             } catch (IllegalArgumentException iae){
                 System.err.println("Error in memory creation.");
                 System.exit(1);
