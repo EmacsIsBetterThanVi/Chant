@@ -3,29 +3,17 @@ package Chant;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Scanner;
 import java.util.TimeZone;
 import java.util.Timer;
 import java.util.TimerTask;
-
-import javax.swing.JFrame;
 import javax.swing.JMenuBar;
 
-import org.w3c.dom.Text;
 
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
-
-import java.awt.Canvas;
-import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowListener;
 /*
 Chant is a programing language which uses an ultraminimal instruction set virtual machine, called the CVM.
 The CVM is 32 bit with support for 64 bit numbers, and has a 32 bit 4 byte alighned instruction in the following format
