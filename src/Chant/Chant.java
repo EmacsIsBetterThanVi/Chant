@@ -24,81 +24,84 @@ public class Chant {
             printhelp();
             return;
         }
-        if (args[0].equals("--header")){
-            int base=1;
-            String fileString="";
-            String source="";
-            boolean amend=false;
-            boolean dump=false;
-            for (int i = 1; i<args.length; i++){
-                switch (args[i]) {
-                    case "-f":
-                    case "--file":
-                        base+=2;
-                        i++;
-                        fileString=args[i];
-                        break;
-                    case "-a":
-                    case "--amend":
-                        dump=false;
-                        amend=true;
-                        base++;
-                        break;
-                    case "-c":
-                    case "--copy":
-                        dump=false;
-                        base+=2;
-                        i++;
-                        source=args[i];
-                        break;
-                    case "-h":
-                    case "--help":
+        if (args[0].equals("--header")) headerMain(args);
+	else compilerMain(args);
+    }
+    public static void headerMain(String[] args){
+	    int base=1;
+        String fileString="";
+        String source="";
+        boolean amend=false;
+        boolean dump=false;
+        for (int i = 1; i<args.length; i++){
+            switch (args[i]) {
+                case "-f":
+                case "--file":
+                    base+=2;
+                    i++;
+                    fileString=args[i];
+                    break;
+                case "-a":
+                case "--amend":
+                    dump=false;
+                    amend=true;
+                    base++;
+                    break;
+                case "-c":
+                case "--copy":
+                    dump=false;
+                    base+=2;
+                    i++;
+                    source=args[i];
+                    break;
+                case "-h":
+                case "--help":
+                    printheaderhelp();
+                    return;
+                case "-d":
+                case "--dump":
+                    dump=true;
+                    break;
+                default:
+                    if (args[i].charAt(0)=='-'){
+                        System.err.println("Unknown option: "+args[i]);
                         printheaderhelp();
-                        return;
-                    case "-d":
-                    case "--dump":
-                        dump=true;
-                        break;
-                    default:
-                        if (args[i].charAt(0)=='-'){
-                            System.err.println("Unknown option: "+args[i]);
-                            printheaderhelp();
-                            System.exit(3);
-                        }
+                        System.exit(3);
+                    }
+            }
+        }
+        CVMHeader cvmHeader;
+        try {
+            if (source.length()==0)
+                if (dump) {
+                    if (fileString.length()==0) {
+                        System.err.println("Dump requires a file to output");
+                        System.exit(3);
+                    }
+                    FileInputStream fileInputStream = new FileInputStream(fileString);
+                    int start = fileInputStream.read();
+                    start+=fileInputStream.read()<<8;
+                    start+=fileInputStream.read()<<16;
+                    cvmHeader=CVMHeader.readHeader(fileInputStream.readNBytes(start));
+                    fileInputStream.close();
+                    System.out.println(cvmHeader);
+                    return;
+                } else
+                    cvmHeader = new CVMHeader((args[base].toUpperCase().charAt(0)=='Y'), Integer.parseInt(args[base+1]), Integer.parseInt(args[base+2]), args[base+3], Arrays.copyOfRange(args, base+4, args.length), new String[0], new String[0]);
+            else {
+                try {
+                    FileInputStream fileInputStream = new FileInputStream(source);
+                    int start = fileInputStream.read();
+                    start+=fileInputStream.read()<<8;
+                    start+=fileInputStream.read()<<16;
+                    cvmHeader=CVMHeader.readHeader(fileInputStream.readNBytes(start));
+                    fileInputStream.close();
+                } catch (IOException e){
+                    System.err.println("Error reading file, it either does not exist, or it is malformated");
+                    System.exit(2);
+                    return;
                 }
             }
-            CVMHeader cvmHeader;
-            try {
-                if (source.length()==0) 
-                    if (dump) {
-                        if (fileString.length()==0) {
-                            System.err.println("Dump requires a file to output");
-                            System.exit(3);
-                        }
-                        FileInputStream fileInputStream = new FileInputStream(fileString);
-                        int start = fileInputStream.read();
-                        start+=fileInputStream.read()<<8;
-                        start+=fileInputStream.read()<<16;
-                        cvmHeader=CVMHeader.readHeader(fileInputStream.readNBytes(start));
-                        fileInputStream.close();
-                        System.out.println(cvmHeader);
-                        return;
-                    } else 
-                        cvmHeader = new CVMHeader((args[base].toUpperCase().charAt(0)=='Y'), Integer.parseInt(args[base+1]), Integer.parseInt(args[base+2]), args[base+3], Arrays.copyOfRange(args, base+4, args.length));
-                else {
-                    try {
-                        FileInputStream fileInputStream = new FileInputStream(source);
-                        int start = fileInputStream.read();
-                        start+=fileInputStream.read()<<8;
-			            start+=fileInputStream.read()<<16;
-                        cvmHeader=CVMHeader.readHeader(fileInputStream.readNBytes(start));
-                        fileInputStream.close();
-                    } catch (IOException e){
-                        System.err.println("Error reading file, it either does not exist, or it is malformated");
-                        System.exit(2);
-                        return;
-                    }
-                }
             } catch (Exception e){
                 System.err.println("Improper formating for data");
                 printheaderhelp();
@@ -143,12 +146,17 @@ public class Chant {
                 }
 
             }
-        } else {
-            compilerMain();
-        } 
     }
-    public static void compilerMain(){
-        printhelp();
-	//TODO write compiler
+    public static void compilerMain(String[] args){
+        for (int i = 1; i<args.length; i++) {
+            switch (args[i]) {
+                default:
+                    if (args[i].charAt(0)=='-'){
+                        System.err.println("Unknown option: "+args[i]);
+                        printhelp();
+                        System.exit(3);
+                    }
+            }
+        }
     }
 }

@@ -8,6 +8,7 @@ import java.util.Arrays;
          0x00003, 1 - Properties field
                 [0] - EXTRA Pointer space
               [1-5] - Number of extra processors(If 0 then 1 processor, if 1 then 2 processors and so on).
+                [6] - SysOp enabled
          0x00004, 4 - EXTRA memory length(Little endian)
          0x00008, 1 - Length of BIOS field
          0x00009, 1 - Number of IO fields
@@ -21,16 +22,19 @@ import java.util.Arrays;
               +0, 1 - Length of path field
               +1, ? - Path field
          0x?????, ? - Second IO field
+         etc.
          0x?????, ? - First SysOp field
               +0, 1 - Length of path field
               +1, ? - Path field
          0x?????, ? - Second SysOp field
+         etc.
          0x?????, ? - First MICRO field
               +0, 1 - Length of path field
               +1, ? - Path field
          0x?????, ? - Second MICRO field
          etc.
          */
+// TODO Update header class
 public record CVMHeader(boolean ExtraPointerSpace, int ExtraCores, long ExtraMemoryLength, String BIOS, String[] peripherals, String[] SysOps, String[] MicroPeripherals) {
     public static CVMHeader readHeader(byte[] data){
         String BIOS = new String(Arrays.copyOfRange(data, 9, 9+data[5]));

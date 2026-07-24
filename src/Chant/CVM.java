@@ -94,7 +94,7 @@ The CVM uses MMIO and has the following Memory Map
                        +0: CMD
                        +1: ARG
 0x0040 0000 - 0x00FF FFFF: Program Code
-0x0100 0000 - 0xFFEF FFFF: Free Memory for data or more program code, probobly has lots of holes and can't be used for pointers(Indirect addressing required).
+0x0100 0000 - 0xFFEF FFFF: Free Memory for data or more program code, can't be used for pointers(Indirect addressing required).
                             (Must be set at start up with the EXTRA Memory length field in the header.)
 0xFFF0 0000 - 0xFFFF FFFF: Stacks
 
@@ -102,6 +102,7 @@ BIOS must start with an unconditional jump to the Boot Processor BIOS, followed 
 */
 @SuppressWarnings("all")
 public class CVM{
+    public static boolean SysOps = false;
     public byte ID;
     private long register = 0;
     private long PC = 0x3B0000;
@@ -138,7 +139,7 @@ public class CVM{
         peripherals = new Peripheral[4+data[6]];
         peripheralList = new String[data[6]];
         int currentAddress = data[7]+(data[8]<<8);
-        //TODO implement micro peripheral loader?
+        //TODO implement micro peripheral and SysOp loader
         for (int i=0; i<data[6]; i++){
             int len = data[currentAddress];
             currentAddress++;
@@ -541,6 +542,11 @@ public class CVM{
         }
         if (conditional){
             switch ((int)(instruction>>>29)) {
+                case 0:
+                    if (SysOps){
+                        //TODO write SysOp handler
+                    }
+                    break;
                 case 1:
                     address=((instruction&(1<<26)) != 0 ? memory.get(address): address );
                     this.register+= ((instruction&(1<<25)) != 0 ? memory.getD(address) : memory.get(address));
