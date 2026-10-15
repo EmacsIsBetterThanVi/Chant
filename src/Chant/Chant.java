@@ -25,7 +25,7 @@ public class Chant {
             return;
         }
         if (args[0].equals("--header")) headerMain(args);
-	else compilerMain(args);
+	    else compilerMain(args);
     }
     public static void headerMain(String[] args){
 	    int base=1;
